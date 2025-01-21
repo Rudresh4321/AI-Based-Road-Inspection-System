@@ -18,7 +18,9 @@ import time
 
 #Importing the model
 
-model = YOLO('best.pt')
+model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
+model = YOLO(model_path)
+
 def bgr2rgb(image):
     return image[:, :, ::-1]
 
