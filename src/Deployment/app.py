@@ -71,7 +71,8 @@ def process_video(video_path):
 
 def main():
 
-    with open("styles.css", "r") as source_style:
+    style_path = os.path.join(os.path.dirname(__file__), "styles.css")
+    with open(style_path, "r") as source_style:
         st.markdown(f"<style>{source_style.read()}</style>", 
              unsafe_allow_html = True)
         
