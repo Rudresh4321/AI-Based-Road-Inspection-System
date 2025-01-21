@@ -172,7 +172,7 @@ def main():
                 image_bytes = io.BytesIO()
                 image_pil.save(image_bytes, format='PNG')
 
-                st.image(image_bytes, caption='Predicted Image', use_container_width=True)
+                st.image(image_bytes, caption='Predicted Image')
             
         # Video
         if options == 'Video':
