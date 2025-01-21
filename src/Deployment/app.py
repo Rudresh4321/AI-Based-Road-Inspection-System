@@ -27,44 +27,38 @@ def bgr2rgb(image):
 
     
 def process_video(video_path):
-    # Load the video
     cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0 or fps is None:
-        fps = 30  # Set a default value for fps if it is 0 or None
-
-    # Create a list to store the processed frames
-    processed_frames = []
-
-    # Process each frame in the video
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Perform the prediction on the frame
-        prediction = model.predict(frame)
-        frame_with_bbox = prediction[0].plot()
-
-        # Convert the frame to PIL Image and store in the list
-        processed_frames.append(Image.fromarray(frame_with_bbox))
-
-    cap.release()
-
-    # Create the output video file path
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     video_path_output = "output.mp4"
 
-    # Save the processed frames as individual images
-    with tempfile.TemporaryDirectory() as temp_dir:
-        for i, frame in enumerate(processed_frames):
-            frame.save(f"{temp_dir}/frame_{i}.png")
+    try:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
+            temp_video_path = temp_video.name
+        out = cv2.VideoWriter(temp_video_path, fourcc, fps, (frame_width, frame_height))
 
-        # Create a video clip from the processed frames
-        video_clip_path = f"{temp_dir}/clip.mp4"
-        os.system(f"ffmpeg -framerate {fps} -i {temp_dir}/frame_%d.png -c:v libx264 -pix_fmt yuv420p {video_clip_path}")
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        # Rename the video clip with the desired output path
-        shutil.copy2(video_clip_path, video_path_output)
+            prediction = model.predict(frame)
+            frame_with_bbox = prediction[0].plot()
+            out.write(cv2.cvtColor(frame_with_bbox, cv2.COLOR_RGB2BGR))
+
+        cap.release()
+        out.release()
+        shutil.move(temp_video_path, video_path_output)
+
+    except Exception as e:
+        cap.release()
+        if 'out' in locals():
+            out.release()
+        if os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
+        raise RuntimeError(f"Error processing video: {e}")
 
     return video_path_output
 
@@ -181,36 +175,45 @@ def main():
             )
             if upload_vid_file is not None:
                 # Save the uploaded video file temporarily
-                temp_file = tempfile.NamedTemporaryFile(delete=False)
-                temp_file.write(upload_vid_file.read())
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
+                    temp_file.write(upload_vid_file.read())
+                    temp_file_path = temp_file.name
 
-                # Start timing
-                start_time = time.time()
+                try:
+                    # Start timing
+                    start_time = time.time()
 
-                # Process the video
-                video_path_output = process_video(temp_file.name)
-            
-                # End timing
-                end_time = time.time()
-                elapsed_time = end_time - start_time
+                    # Create a temporary directory for the output video
+                    with tempfile.TemporaryDirectory() as output_dir:
+                        # Process the video
+                        video_path_output = process_video(temp_file_path, output_dir)
 
-                # Calculate frame rate
-                cap = cv2.VideoCapture(temp_file.name)
-                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                cap.release()
-                frame_rate = frame_count / elapsed_time if elapsed_time > 0 else 0
+                        # End timing
+                        end_time = time.time()
+                        elapsed_time = end_time - start_time
 
-                # Display timing information
-                st.write(f"Processing time: {elapsed_time:.2f} seconds")
-                st.write(f"Total frames: {frame_count:.2f} frames")
-                st.write(f"Processed frame rate: {frame_rate:.2f} FPS")
+                        # Calculate frame rate
+                        cap = cv2.VideoCapture(temp_file_path)
+                        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                        cap.release()
+                        frame_rate = frame_count / elapsed_time if elapsed_time > 0 else 0
 
-                # Display the processed video
-                st.video(video_path_output)
+                        # Display timing information
+                        st.write(f"Processing time: {elapsed_time:.2f} seconds")
+                        st.write(f"Total frames: {frame_count:.2f} frames")
+                        st.write(f"Processed frame rate: {frame_rate:.2f} FPS")
 
-                # Remove the temporary files
-                temp_file.close()
-                os.remove(video_path_output)
+                        # Display the processed video
+                        with open(video_path_output, "rb") as video_file:
+                            st.video(video_file.read())
+
+                except Exception as e:
+                    st.error(f"An error occurred during processing: {e}")
+
+                finally:
+                    # Clean up the temporary input file
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
 
     elif selected == "Model Information":
         st.subheader('Introduction')
