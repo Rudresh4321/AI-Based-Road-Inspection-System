@@ -186,7 +186,7 @@ def main():
                     # Create a temporary directory for the output video
                     with tempfile.TemporaryDirectory() as output_dir:
                         # Process the video
-                        video_path_output = process_video(temp_file_path, output_dir)
+                        video_path_output = process_video(temp_file_path)
 
                         # End timing
                         end_time = time.time()
