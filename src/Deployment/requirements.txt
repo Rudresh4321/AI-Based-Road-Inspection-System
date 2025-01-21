@@ -6,10 +6,3 @@ Pillow==9.5.0
 streamlit==1.2.0
 streamlit_option_menu==0.3.2
 ultralytics==8.0.112
-<<<<<<< HEAD
-zlib-ng==0.5.1
-=======
-zlib-ng==0.5.1
-altair==4.1.0
-
->>>>>>> caa6452 (time and frame update)
