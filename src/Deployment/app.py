@@ -16,7 +16,7 @@ from cv2 import cvtColor
 import os
 import time
 # Path Variables
-faviconPath = "../Deployment/favicon.png"
+faviconPath = "../Deployment/images/favicon.png"
 #Changing metadata
 st.set_page_config(
         page_title='FixMyStreet',
