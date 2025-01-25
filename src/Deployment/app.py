@@ -15,11 +15,12 @@ from ultralytics.yolo.utils.plotting import Annotator
 from cv2 import cvtColor
 import os
 import time
-
+# Path Variables
+faviconPath = "../Deployment/images/favicon.png"
 #Changing metadata
 st.set_page_config(
         page_title='FixMyStreet',
-        page_icon='../Deployment/images/favicon.ico',
+        page_icon=faviconPath,
         layout="wide",   
         initial_sidebar_state="expanded",              
         )
@@ -72,10 +73,10 @@ def process_video(video_path):
 
 
 def main():
-    favicon="images/favicon.ico"
+
     style_path = os.path.join(os.path.dirname(__file__), "styles.css")
     with open(style_path, "r") as source_style:
-        st.markdown(f"""<style>{source_style.read()}</style> <link rel="shortcut icon" href="{}">""", 
+        st.markdown(f"<style>{source_style.read()}</style>", 
              unsafe_allow_html = True)
         
     st.title("AI Road Inspection System")
