@@ -20,7 +20,7 @@ faviconPath = "../Deployment/images/favicon.png"
 #Changing metadata
 st.set_page_config(
         page_title='FixMyStreet',
-        page_icon=faviconPath,
+        page_icon='🛣️',
         layout="wide",   
         initial_sidebar_state="expanded",              
         )
