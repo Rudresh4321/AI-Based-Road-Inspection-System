@@ -15,12 +15,14 @@ from ultralytics.yolo.utils.plotting import Annotator
 from cv2 import cvtColor
 import os
 import time
-
+# Path Variables
+faviconPath = "../Deployment/favicon.png"
 #Changing metadata
 st.set_page_config(
         page_title='FixMyStreet',
-        page_icon='favicon.png',
-        layout="wide",                 
+        page_icon=faviconPath,
+        layout="wide",   
+        initial_sidebar_state="expanded",              
         )
 
 #Importing the model
