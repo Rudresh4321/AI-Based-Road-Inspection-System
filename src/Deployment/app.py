@@ -19,7 +19,8 @@ import time
 #Changing metadata
 st.set_page_config(
         page_title='FixMyStreet',
-        page_icon='FMS_logo.png'                  
+        page_icon='favicon.png',
+        layout="wide",                 
         )
 
 #Importing the model
