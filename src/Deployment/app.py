@@ -72,11 +72,10 @@ def process_video(video_path):
 
 
 def main():
-
+    favicon="images/favicon.ico"
     style_path = os.path.join(os.path.dirname(__file__), "styles.css")
     with open(style_path, "r") as source_style:
-        st.markdown(f"<style>{source_style.read()}</style>
-                    <link rel="shortcut icon" href="{favicon}">", 
+        st.markdown(f"""<style>{source_style.read()}</style> <link rel="shortcut icon" href="{}">""", 
              unsafe_allow_html = True)
         
     st.title("AI Road Inspection System")
