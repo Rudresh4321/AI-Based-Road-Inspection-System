@@ -16,6 +16,12 @@ from cv2 import cvtColor
 import os
 import time
 
+#Changing metadata
+st.set_page_config(
+        page_title='FixMyStreet',
+        page_icon='FMS_logo.png'                  
+        )
+
 #Importing the model
 
 model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
