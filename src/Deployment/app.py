@@ -15,37 +15,38 @@ from ultralytics.yolo.utils.plotting import Annotator
 from cv2 import cvtColor
 import os
 import time
+
 # Path Variables
 faviconPath = "../Deployment/images/favicon.png"
-#Changing metadata
+
+# Changing metadata
 st.set_page_config(
-        page_title='FixMyStreet',
-        page_icon=faviconPath,
-        layout="wide",   
-        initial_sidebar_state="expanded",              
-        )
+    page_title='FixMyStreet',
+    page_icon=faviconPath,
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-#Importing the model
-
+# Importing the model
 model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
 model = YOLO(model_path)
 
 def bgr2rgb(image):
     return image[:, :, ::-1]
 
-
-    
 def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30  # Get FPS or default to 30
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     video_path_output = "output.mp4"
 
     try:
+        # Use a codec compatible with most players (MP4V is widely supported)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
             temp_video_path = temp_video.name
+
         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (frame_width, frame_height))
 
         while cap.isOpened():
@@ -53,15 +54,25 @@ def process_video(video_path):
             if not ret:
                 break
 
+            # Ensure the frame is in BGR format before feeding it into YOLO
             prediction = model.predict(frame)
-            frame_with_bbox = prediction[0].plot()
-            out.write(cv2.cvtColor(frame_with_bbox, cv2.COLOR_RGB2BGR))
+            annotated_frame = prediction[0].plot()
 
+            # Convert the annotated frame to BGR (OpenCV expects BGR format for writing)
+            bgr_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_RGB2BGR)
+
+            # Write the processed frame to the output video
+            out.write(bgr_frame)
+
+        # Release resources
         cap.release()
         out.release()
+
+        # Move the temp video to the final output path
         shutil.move(temp_video_path, video_path_output)
 
     except Exception as e:
+        # Cleanup on error
         cap.release()
         if 'out' in locals():
             out.release()
@@ -71,13 +82,12 @@ def process_video(video_path):
 
     return video_path_output
 
-
 def main():
 
     style_path = os.path.join(os.path.dirname(__file__), "styles.css")
     with open(style_path, "r") as source_style:
         st.markdown(f"<style>{source_style.read()}</style>", 
-             unsafe_allow_html = True)
+             unsafe_allow_html=True)
         
     st.title("AI Road Inspection System")
     Header = st.container()
@@ -87,9 +97,7 @@ def main():
         """
     st.markdown(f"<script>{js_code}</script>", unsafe_allow_html=True)
             
-    
-    ##MainMenu
-    
+    ## MainMenu
     with st.sidebar:
         selected = option_menu.option_menu(
             "Main Menu",
@@ -102,10 +110,8 @@ def main():
     
     st.sidebar.markdown('---')
         
-    ##HOME page 
-    
+    ## HOME page 
     if selected == "Project Information":
-        
         st.subheader("Problem Statement")
         problem_statement = """
         Current practices of performing road inspections are time-consuming and labour-intensive. Road surfaces degrade on a 
@@ -114,11 +120,10 @@ def main():
         inspections. The aim of the project is to use machine learning to study and analyze different types of road defects
         and to automatically detect any road abnormalities.
         """
-        
         st.write(problem_statement)
         
         with st.expander("Read More"): 
-            text = """
+           text = """
         The goal of this project is to design, build and test an inspection system for detecting road abnormalities, defects, and damages
         using machine learning. The proposed system aims to improve the efficiency of road inspections and reduce
         the time and labor required for the process. The system will be equipped with a camera to capture video streams
@@ -128,8 +133,7 @@ def main():
         Ultimately, the proposed system will help to maintain roads more efficiently, enhance driver comfort, and improve economic 
         efficiency. Additionally, the system will provide insights into the causes of road abnormalities in Indian roads, 
         including pitfalls, sinks, flooding, and traffic congestion due to insufficient lanes in cities and towns."""
-            
-            st.write(text)
+        st.write(text)
         
         st.subheader("Our Solution")
         Project_goal = """
@@ -144,10 +148,7 @@ def main():
         
     elif selected == "Predict Defects": 
         st.sidebar.subheader('Settings')
-        
-        options = st.sidebar.radio(
-            'Options:', ('Image', 'Video'), index=1)
-    
+        options = st.sidebar.radio('Options:', ('Image', 'Video'), index=1)
         st.sidebar.markdown("---")
     
         # Image
@@ -179,9 +180,7 @@ def main():
             
         # Video
         if options == 'Video':
-            upload_vid_file = st.sidebar.file_uploader(
-                'Upload Video', type=['mp4', 'avi', 'mkv']
-            )
+            upload_vid_file = st.sidebar.file_uploader('Upload Video', type=['mp4', 'avi', 'mkv'])
             if upload_vid_file is not None:
                 # Save the uploaded video file temporarily
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
@@ -191,38 +190,37 @@ def main():
                 try:
                     # Start timing
                     start_time = time.time()
+                    # Process the video
+                    video_path_output = process_video(temp_file_path)
 
-                    # Create a temporary directory for the output video
-                    with tempfile.TemporaryDirectory() as output_dir:
-                        # Process the video
-                        video_path_output = process_video(temp_file_path)
+                    # End timing
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
 
-                        # End timing
-                        end_time = time.time()
-                        elapsed_time = end_time - start_time
+                    # Calculate frame rate
+                    cap = cv2.VideoCapture(temp_file_path)
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    cap.release()
+                    frame_rate = frame_count / elapsed_time if elapsed_time > 0 else 0
 
-                        # Calculate frame rate
-                        cap = cv2.VideoCapture(temp_file_path)
-                        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                        cap.release()
-                        frame_rate = frame_count / elapsed_time if elapsed_time > 0 else 0
+                    # Display timing information
+                    st.write(f"Processing time: {elapsed_time:.2f} seconds")
+                    st.write(f"Total frames: {frame_count:.2f} frames")
+                    st.write(f"Processed frame rate: {frame_rate:.2f} FPS")
 
-                        # Display timing information
-                        st.write(f"Processing time: {elapsed_time:.2f} seconds")
-                        st.write(f"Total frames: {frame_count:.2f} frames")
-                        st.write(f"Processed frame rate: {frame_rate:.2f} FPS")
+                    # Display the processed video
+                    #st.video(video_path_output)
 
-                        # Display the processed video
-                        with open(video_path_output, "rb") as video_file:
-                            st.video(video_file.read())
-
+                    # Provide a download button
+                    with open(video_path_output, "rb") as video_file:
+                        st.download_button(
+                            label="Download Processed Video",
+                            data=video_file,
+                            file_name="processed_output.mp4",
+                            mime="video/mp4"
+                        )
                 except Exception as e:
                     st.error(f"An error occurred during processing: {e}")
-
-                finally:
-                    # Clean up the temporary input file
-                    if os.path.exists(temp_file_path):
-                        os.remove(temp_file_path)
 
     elif selected == "Model Information":
         st.subheader('Introduction')
@@ -234,7 +232,7 @@ def main():
         alligator cracks. 
         """
         st.write(Introduction)
-        st.subheader('Architecture')
+        st.subheader("Architecture")
         Architecture = """
         The architecture of YOLO consists of a convolutional neural network i.e CNN which is inspired by GoogleNet 
         and is composed of several convolutional layers followed by fully connected layers: This means that the YOLO 
@@ -244,11 +242,10 @@ def main():
         like anchor boxes, class prediction objectness score etc.., Which makes it efficient and accurate object detection
         algorithm that can process images in real-time, making it well-suited for applications such as self-driving cars,
         surveillance systems, and robotics.
-
         """
         st.write(Architecture)
         st.image('architecture.jpg')
-        st.subheader('Training')
+        st.subheader("Training")
         Training = """
         The YOLOv8 model used in the AI Road Inspection System is trained on a large dataset of road images which were
         annotated with bounding boxes and class labels on Roboflow.Roboflow offers a range of datasets and annotation 
@@ -256,7 +253,6 @@ def main():
         capabilities that stremline the process of labeling and preparing datasets for training machine learning models. 
         The training data includes diverse road conditions, different types of objects, and various environmental factors
         to ensure the model's generalization capability.
-        
         """
         st.write(Training)
         st.subheader("Conclusion")
@@ -265,12 +261,11 @@ def main():
         With its real time capabilities, the Ai Road Inspection System provides timely and accurate identification of road anomalies 
         such as potholes , cracks and alligator crakcs.This enables road maintenance teams to prioritize repairs efficiently, leading
         to improved road safety and optimized maintenance operations. 
-
         """
         st.write(conclusion)   
+
 if __name__ == '__main__':
     try:
         main()
     except SystemExit:
         pass
-    
