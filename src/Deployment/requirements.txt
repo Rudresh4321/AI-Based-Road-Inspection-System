@@ -9,3 +9,6 @@ ultralytics==8.0.112
 protobuf==3.20.1
 altair==4
 opencv-python-headless
+torch==2.5.1
+torchaudio==2.5.1
+torchvision==0.20.1

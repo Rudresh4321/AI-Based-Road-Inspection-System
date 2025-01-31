@@ -14,6 +14,7 @@ import shutil
 from ultralytics.yolo.utils.plotting import Annotator
 from cv2 import cvtColor
 import os
+import torch
 import time
 
 # Path Variables
