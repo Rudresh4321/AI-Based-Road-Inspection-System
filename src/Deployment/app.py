@@ -245,7 +245,8 @@ def main():
         surveillance systems, and robotics.
         """
         st.write(Architecture)
-        st.image('architecture.jpg')
+        image_path = os.path.join(os.path.dirname(__file__), "architecture.jpg")
+        st.image(image_path)
         st.subheader("Training")
         Training = """
         The YOLOv8 model used in the AI Road Inspection System is trained on a large dataset of road images which were
