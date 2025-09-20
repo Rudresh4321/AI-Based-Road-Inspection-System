@@ -1,6 +1,6 @@
 imageio==2.26.1
 moviepy==1.0.3
-numpy>1.23.5
+numpy>=1.23.5
 opencv-python==4.7.0.72
 Pillow==10.4.0
 streamlit==1.2.0
@@ -12,3 +12,7 @@ opencv-python-headless
 torch==2.5.1
 torchaudio==2.5.1
 torchvision==0.20.1
+pandas
+openpyxl
+geopy
+requests

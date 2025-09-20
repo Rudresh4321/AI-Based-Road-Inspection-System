@@ -1,0 +1,2 @@
+Detection_ID,Timestamp,Location,Road_Name,GPS_Lat,GPS_Lon,Defect_Type,Confidence,Severity,Size_Category,Repair_Method,Fix_Type,Notes,Inspector,Status,Priority_Score,Date_Fixed
+DET_20250921_073800_1,2025-09-21 07:38:00,Sit Main Road Tumakuru 572103,Sit Main Road ,12.9716,77.5946,pothole,0.819,Medium,large,Hot Mix Asphalt Patching,To Be Decided,Please fix the Pothole it's hard travel in a single lane ,Municipal Administrator,Fixed,19,

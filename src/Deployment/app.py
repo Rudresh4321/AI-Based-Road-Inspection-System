@@ -1,273 +1,313 @@
+#!/usr/bin/env python3
+"""
+FixMyStreet AI Road Inspection System - Main Application
+A comprehensive AI-powered road defect detection and management system
+
+Run with: streamlit run app.py
+
+Author: AI Road Inspection Team
+Version: 2.0
+"""
+
+import os
+import sys
+import warnings
+from datetime import datetime
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
+
 import streamlit as st
-import streamlit.components.v1 as components 
-import cv2 
-import numpy as np 
-from ultralytics import YOLO
-import streamlit_option_menu as option_menu
-from PIL import Image, ImageDraw
-import io
-import tempfile
-import imageio.v2 as imageio
-from moviepy.editor import ImageSequenceClip
-import os
-import shutil
-from ultralytics.yolo.utils.plotting import Annotator
-from cv2 import cvtColor
-import os
-import torch
-import time
 
-# Path Variables
-faviconPath = "../Deployment/images/favicon.png"
-
-# Changing metadata
+# Configure Streamlit page settings
 st.set_page_config(
-    page_title='FixMyStreet',
-    page_icon=faviconPath,
+    page_title="FixMyStreet - AI Road Inspection",
+    page_icon="🛣️",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/fixmystreet/ai-inspection',
+        'Report a bug': 'https://github.com/fixmystreet/ai-inspection/issues',
+        'About': """
+        # FixMyStreet AI Road Inspection System
+        
+        An intelligent system for automated road defect detection and management.
+        
+        **Features:**
+        - AI-powered defect detection using YOLOv8
+        - Real-time image and video processing
+        - Comprehensive database management
+        - Multi-user access control
+        
+        Built with Streamlit, OpenCV, and Ultralytics YOLO.
+        """
+    }
 )
 
-# Importing the model
-model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
-model = YOLO(model_path)
+# Import custom modules with error handling
+try:
+    from core_functions import (
+        load_yolo_model, initialize_geocoder, login_interface, logout,
+        detection_interface, display_session_messages, safe_rerun
+    )
+    from admin_interface import admin_main
+    from user_interface import user_main
+except ImportError as e:
+    st.error(f"❌ Error importing modules: {e}")
+    st.error("Please ensure all required files are present:")
+    st.error("- core_functions.py")
+    st.error("- admin_interface.py") 
+    st.error("- user_interface.py")
+    st.stop()
 
-def bgr2rgb(image):
-    return image[:, :, ::-1]
+def check_dependencies():
+    """Check if all required dependencies are available"""
+    missing_deps = []
+    required_packages = [
+        'cv2', 'numpy', 'pandas', 'openpyxl', 'geopy', 
+        'ultralytics', 'PIL', 'streamlit_option_menu'
+    ]
+    
+    for package in required_packages:
+        try:
+            if package == 'cv2':
+                import cv2
+            elif package == 'PIL':
+                from PIL import Image
+            elif package == 'streamlit_option_menu':
+                import streamlit_option_menu
+            else:
+                __import__(package)
+        except ImportError:
+            missing_deps.append(package)
+    
+    return missing_deps
 
-def process_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30  # Get FPS or default to 30
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    video_path_output = "output.mp4"
+def display_system_status():
+    """Display system status and diagnostics"""
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔧 System Status")
+    
+    # Check model availability
+    model, model_status = load_yolo_model()
+    if model:
+        st.sidebar.success("✅ YOLO Model: Ready")
+    else:
+        st.sidebar.error("❌ YOLO Model: Missing")
+        st.sidebar.caption("Place 'best.pt' in app directory")
+    
+    # Check database files
+    from core_functions import ACTIVE_REPAIRS_FILE, FIXED_REPAIRS_FILE
+    
+    if os.path.exists(ACTIVE_REPAIRS_FILE):
+        st.sidebar.success("✅ Active DB: Found")
+    else:
+        st.sidebar.info("ℹ️ Active DB: Will be created")
+    
+    if os.path.exists(FIXED_REPAIRS_FILE):
+        st.sidebar.success("✅ Fixed DB: Found")
+    else:
+        st.sidebar.info("ℹ️ Fixed DB: Will be created")
 
-    try:
-        # Use a codec compatible with most players (MP4V is widely supported)
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
-            temp_video_path = temp_video.name
+def show_welcome_screen():
+    """Display welcome screen with system information (no nested columns)"""
+    st.markdown("""
+    <div style='text-align: center; padding: 2rem 0;'>
+        <h1 style='color: #2c3e50; margin-bottom: 0.5rem; font-size: 3.5rem;'>🛣️ FixMyStreet</h1>
+        <h2 style='color: #7f8c8d; font-weight: 300; margin-bottom: 2rem;'>AI-Powered Road Inspection System</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
+        <h3 style='margin-top: 0;'>🎯 Advanced Road Infrastructure Management</h3>
+        <p style='font-size: 1.1rem; margin-bottom: 1.5rem;'>Leverage cutting-edge AI technology to detect, analyze, and manage road defects with unprecedented accuracy and efficiency.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("### 🚀 Key Features")
+    features = [
+        ("🔍 **AI Detection**", "YOLOv8-powered real-time defect identification"),
+        ("📊 **Smart Analytics**", "Comprehensive cost estimation and priority scoring"),
+        ("🗂️ **Database Management**", "Robust Excel-based record keeping system"),
+        ("👥 **Role-Based Access**", "Separate interfaces for inspectors and administrators"),
+        ("💰 **Cost Optimization**", "Accurate repair cost estimates based on Indian standards")
+    ]
+    for title, desc in features:
+        st.markdown(f"<div style='background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #667eea; border-radius: 5px;'><strong style='color: #2c3e50;'>{title}</strong><br><span style='color: #6c757d;'>{desc}</span></div>", unsafe_allow_html=True)
 
-        out = cv2.VideoWriter(temp_video_path, fourcc, fps, (frame_width, frame_height))
+def initialize_session_state():
+    """Initialize all required session state variables"""
+    defaults = {
+        'logged_in': False,
+        'user_role': None,
+        'user_name': None,
+        'username': None,
+        'show_success': False,
+        'success_message': "",
+        'app_initialized': False
+    }
+    
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Ensure the frame is in BGR format before feeding it into YOLO
-            prediction = model.predict(frame)
-            annotated_frame = prediction[0].plot()
-
-            # Convert the annotated frame to BGR (OpenCV expects BGR format for writing)
-            bgr_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_RGB2BGR)
-
-            # Write the processed frame to the output video
-            out.write(bgr_frame)
-
-        # Release resources
-        cap.release()
-        out.release()
-
-        # Move the temp video to the final output path
-        shutil.move(temp_video_path, video_path_output)
-
-    except Exception as e:
-        # Cleanup on error
-        cap.release()
-        if 'out' in locals():
-            out.release()
-        if os.path.exists(temp_video_path):
-            os.remove(temp_video_path)
-        raise RuntimeError(f"Error processing video: {e}")
-
-    return video_path_output
+def show_error_page(error_msg: str):
+    """Display error page with troubleshooting information"""
+    st.error("❌ Application Error")
+    st.markdown(f"""
+    **Error Details:**
+    ```
+    {error_msg}
+    ```
+    
+    **Troubleshooting Steps:**
+    
+    1. **Check File Structure:**
+       - Ensure all Python files are in the same directory
+       - Verify `best.pt` model file is present (optional but recommended)
+    
+    2. **Install Dependencies:**
+       ```bash
+       pip install streamlit opencv-python numpy pandas openpyxl
+       pip install geopy ultralytics pillow streamlit-option-menu
+       ```
+    
+    3. **Restart Application:**
+       ```bash
+       streamlit run app.py
+       ```
+    
+    4. **Contact Support:**
+       - Check GitHub repository for updates
+       - Report issues with full error details
+    """)
 
 def main():
-
-    style_path = os.path.join(os.path.dirname(__file__), "styles.css")
-    with open(style_path, "r") as source_style:
-        st.markdown(f"<style>{source_style.read()}</style>", 
-             unsafe_allow_html=True)
-        
-    st.title("AI Road Inspection System")
-    Header = st.container()
-    js_code = """
-        const elements = window.parent.document.getElementsByTagName('footer');
-        elements[0].innerHTML = "Siddaganga Institute of Technology " + new Date().getFullYear();
-        """
-    st.markdown(f"<script>{js_code}</script>", unsafe_allow_html=True)
-            
-    ## MainMenu
-    with st.sidebar:
-        selected = option_menu.option_menu(
-            "Main Menu",
-            options=[
-                "Project Information",
-                "Model Information",           
-                "Predict Defects",
-            ],
-        )
-    
-    st.sidebar.markdown('---')
-        
-    ## HOME page 
-    if selected == "Project Information":
-        st.subheader("Problem Statement")
-        problem_statement = """
-        Current practices of performing road inspections are time-consuming and labour-intensive. Road surfaces degrade on a 
-        daily basis as a result of the heavy traffic on them.This will not only impact the driver’s comfort but will also
-        impact economic efficiency. To maintain roads as efficiently as possible, municipalities perform regular
-        inspections. The aim of the project is to use machine learning to study and analyze different types of road defects
-        and to automatically detect any road abnormalities.
-        """
-        st.write(problem_statement)
-        
-        with st.expander("Read More"): 
-           text = """
-        The goal of this project is to design, build and test an inspection system for detecting road abnormalities, defects, and damages
-        using machine learning. The proposed system aims to improve the efficiency of road inspections and reduce
-        the time and labor required for the process. The system will be equipped with a camera to capture video streams
-        from different roads, and the data will be analyzed using the Matlab machine learning toolbox to train and test the network.
-        The output of the system will be recommended actions for the municipality to fix/correct any identified road defects. 
-        The approach will involve three main tasks: data acquisition, data training/testing, and dashboard building and testing. 
-        Ultimately, the proposed system will help to maintain roads more efficiently, enhance driver comfort, and improve economic 
-        efficiency. Additionally, the system will provide insights into the causes of road abnormalities in Indian roads, 
-        including pitfalls, sinks, flooding, and traffic congestion due to insufficient lanes in cities and towns."""
-        st.write(text)
-        
-        st.subheader("Our Solution")
-        Project_goal = """
-        Our Team developed a Machine Learning ( ML ) model based on the YOLOv8 Architecture, which was trained on a comprehensive
-        dataset of road images and manuallyannotated them to highlight the various types of road defects. Once the model was trained,
-        we proceeded to test its performance on new and unseen data. This testing phase was vital to ensure that our model could
-        generalize well and accurately identify road defects in real-world scenarios.In addition to the model,
-        we developed a web application using the Streamlit API which serves as a user friendly interface for others to test the 
-        trained model on their own videos and images
-        """
-        st.write(Project_goal)
-        
-    elif selected == "Predict Defects": 
-        st.sidebar.subheader('Settings')
-        options = st.sidebar.radio('Options:', ('Image', 'Video'), index=1)
-        st.sidebar.markdown("---")
-    
-        # Image
-        if options == 'Image':
-            upload_img_file = st.sidebar.file_uploader(
-                'Upload Image', type=['jpg', 'jpeg', 'png'])
-            if upload_img_file is not None:
-                # Start timing
-                start_time = time.time()
-            
-                file_bytes = np.asarray(bytearray(upload_img_file.read()), dtype=np.uint8)
-                img = cv2.imdecode(file_bytes, 1)
-
-                prediction = model.predict(img)
-                res_plotted = prediction[0].plot()
-            
-                # End timing
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-
-                # Display timing information
-                st.write(f"Processing time: {elapsed_time:.2f} seconds")
-
-                image_pil = Image.fromarray(res_plotted)
-                image_bytes = io.BytesIO()
-                image_pil.save(image_bytes, format='PNG')
-
-                st.image(image_bytes, caption='Predicted Image')
-            
-        # Video
-        if options == 'Video':
-            upload_vid_file = st.sidebar.file_uploader('Upload Video', type=['mp4', 'avi', 'mkv'])
-            if upload_vid_file is not None:
-                # Save the uploaded video file temporarily
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
-                    temp_file.write(upload_vid_file.read())
-                    temp_file_path = temp_file.name
-
-                try:
-                    # Start timing
-                    start_time = time.time()
-                    # Process the video
-                    video_path_output = process_video(temp_file_path)
-
-                    # End timing
-                    end_time = time.time()
-                    elapsed_time = end_time - start_time
-
-                    # Calculate frame rate
-                    cap = cv2.VideoCapture(temp_file_path)
-                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    cap.release()
-                    frame_rate = frame_count / elapsed_time if elapsed_time > 0 else 0
-
-                    # Display timing information
-                    st.write(f"Processing time: {elapsed_time:.2f} seconds")
-                    st.write(f"Total frames: {frame_count:.2f} frames")
-                    st.write(f"Processed frame rate: {frame_rate:.2f} FPS")
-
-                    # Display the processed video
-                    #st.video(video_path_output)
-
-                    # Provide a download button
-                    with open(video_path_output, "rb") as video_file:
-                        st.download_button(
-                            label="Download Processed Video",
-                            data=video_file,
-                            file_name="processed_output.mp4",
-                            mime="video/mp4"
-                        )
-                except Exception as e:
-                    st.error(f"An error occurred during processing: {e}")
-
-    elif selected == "Model Information":
-        st.subheader('Introduction')
-        Introduction = """
-        The Ai road Inspection system , is an innovatiove solution that leverages computer vision and deep learning techniques
-        to improve the road inspection and analysis. Traditional road Inspection methods often rely on manual labour 
-        which is time consuming  and prone to human error. The AI road inspection system aims to address these limitations by enabling 
-        real time detection, classification and analysis of various objects and anomalies on roads including potholes, cracks and 
-        alligator cracks. 
-        """
-        st.write(Introduction)
-        st.subheader("Architecture")
-        Architecture = """
-        The architecture of YOLO consists of a convolutional neural network i.e CNN which is inspired by GoogleNet 
-        and is composed of several convolutional layers followed by fully connected layers: This means that the YOLO 
-        architecture is made up of two types of layers - convolutional and fully connected layers. Convolutional
-        layers are used to extract features from the input image, while fully connected layers are used to predict the
-        class probabilities and bounding boxes for each object detected in the image.YOLO also uses various other techniques
-        like anchor boxes, class prediction objectness score etc.., Which makes it efficient and accurate object detection
-        algorithm that can process images in real-time, making it well-suited for applications such as self-driving cars,
-        surveillance systems, and robotics.
-        """
-        st.write(Architecture)
-        image_path = os.path.join(os.path.dirname(__file__), "architecture.jpg")
-        st.image(image_path)
-        st.subheader("Training")
-        Training = """
-        The YOLOv8 model used in the AI Road Inspection System is trained on a large dataset of road images which were
-        annotated with bounding boxes and class labels on Roboflow.Roboflow offers a range of datasets and annotation 
-        tools specifically designed for computer vision and also provides a user-friendly interface and annotation 
-        capabilities that stremline the process of labeling and preparing datasets for training machine learning models. 
-        The training data includes diverse road conditions, different types of objects, and various environmental factors
-        to ensure the model's generalization capability.
-        """
-        st.write(Training)
-        st.subheader("Conclusion")
-        conclusion = """
-        The model is hence a cutting -edge solution that offers significant advancements over traditional manual inspection methods. 
-        With its real time capabilities, the Ai Road Inspection System provides timely and accurate identification of road anomalies 
-        such as potholes , cracks and alligator crakcs.This enables road maintenance teams to prioritize repairs efficiently, leading
-        to improved road safety and optimized maintenance operations. 
-        """
-        st.write(conclusion)   
-
-if __name__ == '__main__':
+    """Main application entry point"""
     try:
-        main()
-    except SystemExit:
-        pass
+        # Initialize session state
+        initialize_session_state()
+        
+        # Check dependencies
+        missing_deps = check_dependencies()
+        if missing_deps:
+            st.error("❌ Missing Required Dependencies")
+            st.markdown("**Please install the following packages:**")
+            for dep in missing_deps:
+                st.code(f"pip install {dep}")
+            st.markdown("**Installation command:**")
+            st.code("pip install " + " ".join(missing_deps))
+            st.stop()
+        
+        # Display session messages
+        display_session_messages()
+        
+        # Show system status in sidebar
+        display_system_status()
+        
+        # Main application logic
+        if not st.session_state.logged_in:
+            # Show welcome screen and login
+            show_welcome_screen()
+            st.markdown("---")
+            
+        # Always show login interface if not logged in
+        if not st.session_state.logged_in:
+            login_interface()
+            return
+        
+        # Route to appropriate interface based on user role
+        try:
+            if st.session_state.user_role == "admin":
+                admin_main()
+            elif st.session_state.user_role == "inspector":
+                user_main()
+            else:
+                st.error("❌ Invalid user role. Please contact administrator.")
+                if st.button("🚪 Logout"):
+                    logout()
+                    
+        except Exception as interface_error:
+            st.error(f"❌ Interface Error: {str(interface_error)}")
+            st.markdown("**Try refreshing the page or logging out and back in.**")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔄 Refresh Page"):
+                    safe_rerun()
+            with col2:
+                if st.button("🚪 Logout"):
+                    logout()
+        
+    except Exception as e:
+        show_error_page(str(e))
+        
+        # Emergency logout option
+        if st.button("🚪 Emergency Logout"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            safe_rerun()
+
+def run_diagnostics():
+    """Run system diagnostics and display results"""
+    st.markdown("### 🔧 System Diagnostics")
+    
+    diagnostics = []
+    
+    # Check Python version
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    diagnostics.append(("Python Version", python_version, "✅" if sys.version_info >= (3, 7) else "❌"))
+    
+    # Check Streamlit version
+    try:
+        import streamlit as st_check
+        st_version = st_check.__version__
+        diagnostics.append(("Streamlit Version", st_version, "✅"))
+    except:
+        diagnostics.append(("Streamlit Version", "Unknown", "⚠️"))
+    
+    # Check critical files
+    critical_files = ['core_functions.py', 'admin_interface.py', 'user_interface.py']
+    for file in critical_files:
+        exists = os.path.exists(file)
+        status = "✅" if exists else "❌"
+        diagnostics.append(("File: " + file, "Present" if exists else "Missing", status))
+    
+    # Check optional files
+    optional_files = ['best.pt']
+    for file in optional_files:
+        exists = os.path.exists(file)
+        status = "✅" if exists else "ℹ️"
+        diagnostics.append(("Optional: " + file, "Present" if exists else "Not Found", status))
+    
+    # Display diagnostics table
+    for item, value, status in diagnostics:
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.write(f"**{item}**")
+        with col2:
+            st.write(value)
+        with col3:
+            st.write(status)
+
+if __name__ == "__main__":
+    try:
+        # Add diagnostic mode
+        if len(sys.argv) > 1 and sys.argv[1] == "--diagnostics":
+            st.title("🔧 FixMyStreet Diagnostics")
+            run_diagnostics()
+        else:
+            main()
+            
+    except KeyboardInterrupt:
+        st.write("👋 Application stopped by user")
+    except Exception as critical_error:
+        st.error("💥 Critical Application Error")
+        st.exception(critical_error)
+        st.markdown("""
+        **Recovery Options:**
+        1. Refresh the browser page
+        2. Restart the Streamlit server
+        3. Check the terminal for detailed error messages
+        4. Run diagnostics: `streamlit run app.py --diagnostics`
+        """)
