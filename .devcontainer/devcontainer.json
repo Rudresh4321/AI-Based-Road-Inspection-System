@@ -16,17 +16,18 @@
       ]
     }
   },
-  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit>=1.28.0; echo '✅ Packages installed and Requirements met'",
+  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y < packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit>=1.28.0; echo '✅ Packages installed and Requirements met'",
+  "postCreateCommand": "mkdir -p /workspaces/AI-Based-Road-Inspection-System/src/Deployment/.streamlit && if [ -n \"${FMS_EMAIL}\" ] && [ -n \"${FMS_EMAIL_PASSWORD}\" ]; then echo \"[email]\" > /workspaces/AI-Based-Road-Inspection-System/src/Deployment/.streamlit/secrets.toml && echo \"sender_email = \\\"${FMS_EMAIL}\\\"\" >> /workspaces/AI-Based-Road-Inspection-System/src/Deployment/.streamlit/secrets.toml && echo \"sender_password = \\\"${FMS_EMAIL_PASSWORD}\\\"\" >> /workspaces/AI-Based-Road-Inspection-System/src/Deployment/.streamlit/secrets.toml; else echo '⚠️ FMS_EMAIL or FMS_EMAIL_PASSWORD not set. secrets.toml not created.'; fi",
   "postAttachCommand": {
     "server": "streamlit run src/Deployment/app.py --server.enableCORS false --server.enableXsrfProtection false"
   },
+  "forwardPorts": [
+    8501
+  ],
   "portsAttributes": {
     "8501": {
       "label": "Application",
       "onAutoForward": "openPreview"
     }
-  },
-  "forwardPorts": [
-    8501
-  ]
+  }
 }

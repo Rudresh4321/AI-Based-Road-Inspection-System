@@ -49,12 +49,13 @@ st.set_page_config(
 try:
     from core_functions import (
         load_yolo_model, initialize_geocoder, login_interface, logout,
-        detection_interface, display_session_messages, safe_rerun
+        detection_interface, display_session_messages, safe_rerun,
+        initialize_app
     )
     from admin_interface import admin_main
     from user_interface import user_main
 except ImportError as e:
-    st.error(f"❌ Error importing modules: {e}")
+    st.error(f"Error importing modules: {e}")
     st.error("Please ensure all required files are present:")
     st.error("- core_functions.py")
     st.error("- admin_interface.py") 
@@ -87,53 +88,57 @@ def check_dependencies():
 def display_system_status():
     """Display system status and diagnostics"""
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🔧 System Status")
+    st.sidebar.subheader("System Status")
     
     # Check model availability
     model, model_status = load_yolo_model()
     if model:
-        st.sidebar.success("✅ YOLO Model: Ready")
+        st.sidebar.success("YOLO Model: Ready")
     else:
-        st.sidebar.error("❌ YOLO Model: Missing")
+        st.sidebar.error("YOLO Model: Missing")
         st.sidebar.caption("Place 'best.pt' in app directory")
     
-    # Check database files
-    from core_functions import ACTIVE_REPAIRS_FILE, FIXED_REPAIRS_FILE
+    # Check database
+    from core_functions import DB_FILE
     
-    if os.path.exists(ACTIVE_REPAIRS_FILE):
-        st.sidebar.success("✅ Active DB: Found")
+    if os.path.exists(DB_FILE):
+        st.sidebar.success("Database: Connected")
     else:
-        st.sidebar.info("ℹ️ Active DB: Will be created")
-    
-    if os.path.exists(FIXED_REPAIRS_FILE):
-        st.sidebar.success("✅ Fixed DB: Found")
-    else:
-        st.sidebar.info("ℹ️ Fixed DB: Will be created")
+        st.sidebar.info("Database: Will be created")
 
 def show_welcome_screen():
-    """Display welcome screen with system information (no nested columns)"""
+    """Display welcome screen with system information"""
     st.markdown("""
     <div style='text-align: center; padding: 2rem 0;'>
         <h1 style='color: #2c3e50; margin-bottom: 0.5rem; font-size: 3.5rem;'>🛣️ FixMyStreet</h1>
         <h2 style='color: #7f8c8d; font-weight: 300; margin-bottom: 2rem;'>AI-Powered Road Inspection System</h2>
     </div>
     """, unsafe_allow_html=True)
+    
     st.markdown("""
     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
-        <h3 style='margin-top: 0;'>🎯 Advanced Road Infrastructure Management</h3>
+        <h3 style='margin-top: 0;'>Advanced Road Infrastructure Management</h3>
         <p style='font-size: 1.1rem; margin-bottom: 1.5rem;'>Leverage cutting-edge AI technology to detect, analyze, and manage road defects with unprecedented accuracy and efficiency.</p>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("### 🚀 Key Features")
+    
+    st.markdown("### Key Features")
+    
     features = [
-        ("🔍 **AI Detection**", "YOLOv8-powered real-time defect identification"),
-        ("📊 **Smart Analytics**", "Comprehensive cost estimation and priority scoring"),
-        ("🗂️ **Database Management**", "Robust Excel-based record keeping system"),
-        ("👥 **Role-Based Access**", "Separate interfaces for inspectors and administrators"),
-        ("💰 **Cost Optimization**", "Accurate repair cost estimates based on Indian standards")
+        ("AI Detection", "YOLOv8-powered real-time defect identification"),
+        ("Smart Analytics", "Comprehensive cost estimation and priority scoring"),
+        ("Database Management", "Robust SQLite-based record keeping system"),
+        ("Role-Based Access", "Separate interfaces for inspectors and administrators"),
+        ("Cost Optimization", "Accurate repair cost estimates based on Indian standards")
     ]
+    
     for title, desc in features:
-        st.markdown(f"<div style='background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #667eea; border-radius: 5px;'><strong style='color: #2c3e50;'>{title}</strong><br><span style='color: #6c757d;'>{desc}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #667eea; border-radius: 5px;'>
+            <strong style='color: #2c3e50;'>{title}</strong><br>
+            <span style='color: #6c757d;'>{desc}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 def initialize_session_state():
     """Initialize all required session state variables"""
@@ -142,6 +147,7 @@ def initialize_session_state():
         'user_role': None,
         'user_name': None,
         'username': None,
+        'user_id': None,
         'show_success': False,
         'success_message': "",
         'app_initialized': False
@@ -153,7 +159,7 @@ def initialize_session_state():
 
 def show_error_page(error_msg: str):
     """Display error page with troubleshooting information"""
-    st.error("❌ Application Error")
+    st.error("Application Error")
     st.markdown(f"""
     **Error Details:**
     ```
@@ -191,13 +197,18 @@ def main():
         # Check dependencies
         missing_deps = check_dependencies()
         if missing_deps:
-            st.error("❌ Missing Required Dependencies")
+            st.error("Missing Required Dependencies")
             st.markdown("**Please install the following packages:**")
             for dep in missing_deps:
                 st.code(f"pip install {dep}")
             st.markdown("**Installation command:**")
             st.code("pip install " + " ".join(missing_deps))
             st.stop()
+        
+        # Initialize the application
+        if not initialize_app():
+            st.error("Failed to initialize application. Please check your setup.")
+            return
         
         # Display session messages
         display_session_messages()
@@ -210,9 +221,6 @@ def main():
             # Show welcome screen and login
             show_welcome_screen()
             st.markdown("---")
-            
-        # Always show login interface if not logged in
-        if not st.session_state.logged_in:
             login_interface()
             return
         
@@ -223,34 +231,34 @@ def main():
             elif st.session_state.user_role == "inspector":
                 user_main()
             else:
-                st.error("❌ Invalid user role. Please contact administrator.")
-                if st.button("🚪 Logout"):
+                st.error("Invalid user role. Please contact administrator.")
+                if st.button("Logout"):
                     logout()
                     
         except Exception as interface_error:
-            st.error(f"❌ Interface Error: {str(interface_error)}")
+            st.error(f"Interface Error: {str(interface_error)}")
             st.markdown("**Try refreshing the page or logging out and back in.**")
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("🔄 Refresh Page"):
+                if st.button("Refresh Page"):
                     safe_rerun()
             with col2:
-                if st.button("🚪 Logout"):
+                if st.button("Logout"):
                     logout()
         
     except Exception as e:
         show_error_page(str(e))
         
         # Emergency logout option
-        if st.button("🚪 Emergency Logout"):
+        if st.button("Emergency Logout"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             safe_rerun()
 
 def run_diagnostics():
     """Run system diagnostics and display results"""
-    st.markdown("### 🔧 System Diagnostics")
+    st.markdown("### System Diagnostics")
     
     diagnostics = []
     
@@ -294,15 +302,15 @@ if __name__ == "__main__":
     try:
         # Add diagnostic mode
         if len(sys.argv) > 1 and sys.argv[1] == "--diagnostics":
-            st.title("🔧 FixMyStreet Diagnostics")
+            st.title("FixMyStreet Diagnostics")
             run_diagnostics()
         else:
             main()
             
     except KeyboardInterrupt:
-        st.write("👋 Application stopped by user")
+        st.write("Application stopped by user")
     except Exception as critical_error:
-        st.error("💥 Critical Application Error")
+        st.error("Critical Application Error")
         st.exception(critical_error)
         st.markdown("""
         **Recovery Options:**
